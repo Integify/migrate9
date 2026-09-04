@@ -40,9 +40,9 @@ Existing nine-digit numbers are unchanged. Values carrying a non-Gambian country
 
 ## VCF transformation
 
-The transformer works line-by-line on raw text, preserving original line endings and every line other than transformed `TEL` value lines byte-for-byte. It recognizes folded vCard property lines, `TEL` properties with parameters, vCard 2.1/3.0/4.0 forms, and multiple numbers per contact. It retains `PHOTO`, `NOTE`, custom properties, non-ASCII text, and unknown values unchanged. It replaces only the value portion of a targeted `TEL` property, retaining its property name, parameters, and folding/layout when the insertion does not require rewrapping.
+The transformer works line-by-line on raw text, preserving original line endings and every line other than newly inserted companion `TEL` lines byte-for-byte. It recognizes folded vCard property lines, `TEL` properties with parameters, vCard 2.1/3.0/4.0 forms, and multiple numbers per contact. It retains `PHOTO`, `NOTE`, custom properties, non-ASCII text, and unknown values unchanged. For each convertible (or manually assigned) legacy `TEL`, it keeps the original line and inserts a companion `TEL` immediately after it with the same property name and parameters and the nine-digit value. If that companion value already exists on the contact, no second line is added.
 
-Review items keep a stable reference to the transformed TEL occurrence. When an operator is manually selected, the download is regenerated from the source text using that assignment. A transformed output rerun through the mapper produces no new conversion candidates.
+Review items keep a stable reference to the legacy TEL occurrence. When an operator is manually selected, the download is regenerated from the source text using that assignment. A transformed output rerun through the mapper produces an identical file.
 
 ## Error handling and privacy
 
