@@ -8,9 +8,13 @@ import '@fontsource/ibm-plex-mono/500.css'
 import '@fontsource/ibm-plex-mono/600.css'
 import { operators, type Operator } from './lib/numbering'
 import { convertVcard, type Conversion, type ReviewItem } from './lib/vcard'
+import { isIosDevice, isStandaloneApp, registerServiceWorker, type BeforeInstallPromptEvent } from './lib/pwa'
 import './styles.css'
 
+registerServiceWorker()
+
 const PAGE_SIZES = [10, 25, 50, 100] as const
+const INSTALL_DISMISS_KEY = 'migrate9-install-dismissed'
 
 type StatFilter = 'Africell' | 'QCell' | 'Comium' | 'pending' | 'unknown'
 
@@ -109,6 +113,7 @@ function Pager({
 
 function App() {
   const input = useRef<HTMLInputElement>(null)
+  const installPrompt = useRef<BeforeInstallPromptEvent | null>(null)
   const [fileName, setFileName] = useState('')
   const [source, setSource] = useState('')
   const [manual, setManual] = useState<Record<number, Operator>>({})
@@ -119,7 +124,49 @@ function App() {
   const [filterOpen, setFilterOpen] = useState<StatFilter | null>(null)
   const [filterPage, setFilterPage] = useState(1)
   const [filterPageSize, setFilterPageSize] = useState<(typeof PAGE_SIZES)[number]>(25)
+  const [installOpen, setInstallOpen] = useState(() => !isStandaloneApp() && localStorage.getItem(INSTALL_DISMISS_KEY) !== '1')
+  const [installReady, setInstallReady] = useState(false)
+  const iosInstall = isIosDevice()
   const conversion: Conversion | null = source ? convertVcard(source, manual) : null
+
+  useEffect(() => {
+    function onPrompt(event: Event) {
+      event.preventDefault()
+      installPrompt.current = event as BeforeInstallPromptEvent
+      setInstallReady(true)
+      setInstallOpen(true)
+    }
+    function onInstalled() {
+      installPrompt.current = null
+      setInstallReady(false)
+      setInstallOpen(false)
+      localStorage.setItem(INSTALL_DISMISS_KEY, '1')
+    }
+    window.addEventListener('beforeinstallprompt', onPrompt)
+    window.addEventListener('appinstalled', onInstalled)
+    return () => {
+      window.removeEventListener('beforeinstallprompt', onPrompt)
+      window.removeEventListener('appinstalled', onInstalled)
+    }
+  }, [])
+
+  async function installApp() {
+    const prompt = installPrompt.current
+    if (!prompt) return
+    await prompt.prompt()
+    const choice = await prompt.userChoice
+    installPrompt.current = null
+    setInstallReady(false)
+    if (choice.outcome === 'accepted') {
+      setInstallOpen(false)
+      localStorage.setItem(INSTALL_DISMISS_KEY, '1')
+    }
+  }
+
+  function dismissInstall() {
+    setInstallOpen(false)
+    localStorage.setItem(INSTALL_DISMISS_KEY, '1')
+  }
 
   async function choose(file?: File) {
     if (!file) return
@@ -216,6 +263,31 @@ function App() {
 
   return (
     <div className="shell">
+      {installOpen && (
+        <aside className="install-banner" aria-label="Install app">
+          <div>
+            <p className="install-kicker">Install Migrate9</p>
+            <p className="install-copy">
+              {iosInstall
+                ? 'On iPhone/iPad: tap Share, then Add to Home Screen. Works offline as an app icon.'
+                : installReady
+                  ? 'Install this app on your phone or computer for quick access. Contacts still stay private on this device.'
+                  : 'Add this app to your home screen for quick access. Use your browser menu → Install app / Add to Home Screen.'}
+            </p>
+          </div>
+          <div className="install-actions">
+            {installReady && !iosInstall && (
+              <button type="button" className="btn solid compact" onClick={() => void installApp()}>
+                Install
+              </button>
+            )}
+            <button type="button" className="btn ghost compact" onClick={dismissInstall}>
+              Not now
+            </button>
+          </div>
+        </aside>
+      )}
+
       <header className="topbar">
         <div className="brand">
           <p className="mark">Migrate9</p>
@@ -316,18 +388,31 @@ function App() {
       </main>
 
       <footer className="footer">
-        <p className="footer-note">
-          Dual running of 7-digit and 9-digit dialing ends on November 30, 2026.
-        </p>
-        <a
-          className="powered-by"
-          href="https://www.integify.io"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <span>Powered by</span>
-          <img src="/Integify_white_logo.png" alt="Integify" className="powered-by-logo" />
-        </a>
+        <div className="footer-bar">
+          <a
+            className="github-btn"
+            href="https://github.com/Integify/migrate9"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <svg className="github-icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+              <path
+                fill="currentColor"
+                d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8"
+              />
+            </svg>
+            GitHub
+          </a>
+          <a
+            className="powered-by"
+            href="https://www.integify.io"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <span>Powered by</span>
+            <img src="/Integify_white_logo.png" alt="Integify" className="powered-by-logo" />
+          </a>
+        </div>
       </footer>
 
       {importOpen && (
