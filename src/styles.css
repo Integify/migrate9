@@ -411,8 +411,8 @@ tbody tr:hover { background: #faf9f7; }
 }
 
 .github-btn {
-  grid-column: 2;
-  justify-self: center;
+  grid-column: 1;
+  justify-self: start;
   display: inline-flex;
   align-items: center;
   gap: 7px;
